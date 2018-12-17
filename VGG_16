@@ -1,0 +1,155 @@
+from keras.models import Sequential
+from keras.layers.core import Flatten, Dense, Dropout
+from keras.layers.convolutional import Convolution2D, MaxPooling2D, ZeroPadding2D
+from keras.optimizers import SGD
+import numpy as np
+from keras.models import Sequential
+from keras.layers import Convolution2D, MaxPooling2D
+from keras.layers import Activation, Dropout, Flatten, Dense
+from keras.preprocessing.image  import ImageDataGenerator
+from keras.callbacks  import EarlyStopping
+from keras.preprocessing.image import ImageDataGenerator
+from keras.optimizers import rmsprop
+from keras import backend as k
+from matplotlib import pyplot  as  plt
+
+model = Sequential()
+model.add(ZeroPadding2D((1,1),input_shape=(200,200,3)))
+model.add(Convolution2D(16, 3, 3, activation='relu'))
+
+model.add(ZeroPadding2D((1,1)))
+model.add(Convolution2D(16, 3, 3, activation='relu'))
+model.add(MaxPooling2D((2,2), strides=(2,2)))
+
+model.add(ZeroPadding2D((1,1)))
+model.add(Convolution2D(32, 3, 3, activation='relu'))
+model.add(ZeroPadding2D((1,1)))
+model.add(Convolution2D(32, 3, 3, activation='relu'))
+model.add(MaxPooling2D((2,2), strides=(2,2)))
+
+model.add(ZeroPadding2D((1,1)))
+model.add(Convolution2D(64, 3, 3, activation='relu'))
+model.add(ZeroPadding2D((1,1)))
+model.add(Convolution2D(64, 3, 3, activation='relu'))
+model.add(ZeroPadding2D((1,1)))
+model.add(Convolution2D(64, 3, 3, activation='relu'))
+model.add(MaxPooling2D((2,2), strides=(2,2)))  # L17   feature shape  (1, batch, h, w, maps) 
+
+#c4
+model.add(ZeroPadding2D((1,1)))
+model.add(Convolution2D(128, 3, 3, activation='relu'))
+model.add(ZeroPadding2D((1,1)))
+model.add(Convolution2D(128, 3, 3, activation='relu'))
+model.add(ZeroPadding2D((1,1)))
+model.add(Convolution2D(128, 3, 3, activation='relu'))
+model.add(MaxPooling2D((2,2), strides=(2,2)))
+
+#c5
+model.add(ZeroPadding2D((1,1)))
+model.add(Convolution2D(256, 3, 3, activation='relu'))
+model.add(ZeroPadding2D((1,1)))
+model.add(Convolution2D(256, 3, 3, activation='relu'))
+model.add(ZeroPadding2D((1,1)))
+model.add(Convolution2D(256, 3, 3, activation='relu'))
+model.add(MaxPooling2D((2,2), strides=(2,2)))
+# model.add(Convolution2D(3, 1, 1, activation='relu', ))  #L32
+
+model.add(Flatten())
+model.add(Dense(512, activation='relu'))
+model.add(Dense(256, activation='relu'))
+model.add(Dense(5, activation='softmax'))
+
+optimizer_ = rmsprop(lr = 0.001)
+
+
+print model.summary()
+exit()
+train_path = '/home/ny/image/work/train'
+test_path = '/home/ny/image/work/test'
+
+datagen = ImageDataGenerator(
+        rotation_range=40,
+        width_shift_range=0.2,
+        height_shift_range=0.2,
+        rescale=1./255,
+        shear_range=0.2,
+        zoom_range=0.2,
+        horizontal_flip=True,
+        fill_mode='nearest')
+
+train_datagen = ImageDataGenerator(
+        rescale=1./255,
+        shear_range=0.2,
+        zoom_range=0.2,
+        horizontal_flip=True)
+
+test_datagen = ImageDataGenerator(
+        rescale=1./255,
+        shear_range=0.2,
+        zoom_range=0.2,
+        horizontal_flip=True)
+
+feature_gen = ImageDataGenerator(
+        rescale=1./255,
+        shear_range=0.2,
+        zoom_range=0.2,
+        horizontal_flip=True)
+
+train_generator = train_datagen.flow_from_directory(
+        train_path,
+        shuffle=True,    
+        target_size=(200, 200),  
+        batch_size=20,
+        class_mode='categorical')
+
+test_generator = test_datagen.flow_from_directory(
+        test_path,
+        shuffle=True,  
+        target_size=(200, 200),  
+        batch_size=20,
+        class_mode='categorical')
+
+
+model.compile(loss='categorical_crossentropy',
+              optimizer=optimizer_,
+              metrics=['accuracy'])
+
+print model.summary()
+
+result = model.fit_generator(train_generator, samples_per_epoch=400,
+			nb_epoch=100, verbose=2, validation_data=test_generator, nb_val_samples=80,)
+print result.history
+model.save_weights('/home/ny/weights.h5')
+
+# get_feature = k.function([model.layers[0].input, k.learning_phase()], [model.layers[15].output]) 
+# get_featuremap = k.function([model.layers[0].input, k.learning_phase()], [model.layers[2].output])
+
+#define tensorflow funtion to get output of  first Conv layer 
+# get_featuremap = k.function([model.layers[0].input],model.layers[2].output,allow_input_downcast=False) 
+# data_tuple = feature_gen.flow_from_directory(
+#         '/home/ny/keras_image/feature_img',  
+#         target_size=(200, 200),  
+#         batch_size=15,
+#         class_mode='binary') .next()
+# data, label = data_tuple
+# feature = get_feature([data, 1])
+#visualize these images's FC-layer feature ,return feature shape  [ [batchs, h, w, maps] ]
+# print  np.array(feature).shape    # (5, 21, 21, 1)
+# exit()
+# img_array = feature[0]
+# for i in range(len(img_array)):
+#     img = img_array[i]
+#     img = img.transpose(2, 0,1)
+#     for j in range(len(img)):
+#     	maps = img[j]
+#     	pic_name = '{}_{}.jpg'.format(i, j)
+#     	plt.imsave('/home/ny/keras_image/feature'+'/'+pic_name, maps)
+# exit()
+    	# plt.imshow(maps, cmap = cm.Greys_r)
+    	# plt.show()
+# #visualize feature map of Convolution Layer
+# num_fmap = 4    #number of feature map
+# for i in range(num_fmap):
+#     featuremap = get_featuremap([data ,0] )
+#     plt.imshow(featuremap[0][i],cmap = cm.Greys_r) #visualize the first image's 4 feature map
+#     plt.show()
