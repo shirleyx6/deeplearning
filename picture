@@ -1,0 +1,104 @@
+#read & display picture
+
+import cv2#新的OpenCV的接口中没有CreateImage接口
+import numpy as np#要创建图像，需要使用numpy的函数
+
+img=cv2.imread('E:/OpenCV/pic3.png')
+cv2.namedWindow('Image')
+cv2.imshow('Image',img)
+cv2.waitKey(0)#如果不添这一句，在IDLE中执行窗口直接无响应。在命令行中执行的话，则是一闪而过。
+cv2.imwrite("E:/OpenCV/pic3_1.png", img)#save
+
+
+#face recognition
+
+import cv2
+import numpy as np
+
+# 运行之前，检查cascade文件路径是否在相应的目录下
+face_cascade = cv2.CascadeClassifier('E:/OpenCV/haarcascade_frontalface_default.xml')
+eye_cascade = cv2.CascadeClassifier('E:/OpenCV/haarcascade_eye.xml') 
+
+img =cv2.imread('E:/OpenCV/like.jpg')
+gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)#转换成灰度的图片的计算强度得以降低。
+
+# 检测脸部
+faces = face_cascade.detectMultiScale(gray, scaleFactor=1.05, minNeighbors=2, minSize=(1, 1), flags=cv2.CASCADE_SCALE_IMAGE)
+print('Detected ', len(faces), " face")
+
+for (x, y, w, h) in faces:
+    img = cv2.rectangle(img, (x, y), (x + w, y + h), (255, 0, 0), 2)
+    roi_gray = gray[y: y + h, x: x + w]
+    roi_color = img[y: y + h, x: x + w]
+    
+    eyes = eye_cascade.detectMultiScale(roi_gray)
+    for(ex, ey, ew, eh) in eyes:
+        cv2.rectangle(roi_color,(ex,ey),(ex+ew,ey+eh),(0,255,0),2)#最后一个参数指定的就是画笔的大小
+
+cv2.imshow('img', img)
+cv2.waitKey(0)
+cv2.destroyAllWindows()
+#cv2.imwrite("E:/OpenCV/like_1.png", img)#save
+
+
+#obD
+from imageai.Detection import ObjectDetection
+#import os
+
+#execution_path = os.getcwd()
+execution_path ='E:/OpenCV'
+
+detector = ObjectDetection()
+detector.setModelTypeAsRetinaNet()#将模型类型设置为RetinaNet
+#将模型的路径设为RetinaNet模型文件所在路径
+detector.setModelPath( os.path.join(execution_path , "resnet50_coco_best_v2.0.1.h5"))
+detector.loadModel()
+#将检测到的每个目标的图片单独提取出来
+detections = detector.detectObjectsFromImage(input_image=os.path.join(execution_path , "ob2.png"),
+                                             output_image_path=os.path.join(execution_path , "ob2_new.png"))#, extract_detected_objects=True)
+
+for eachObject in detections:
+    print(eachObject["name"]+":"+eachObject["percentage_probability"])
+    
+
+#videos
+import cv2
+
+cameraCapture = cv2.VideoCapture('./res/test.mp4')
+print(cameraCapture.get(cv2.CAP_PROP_POS_MSEC))#视频文件的当前位置（播放）以毫秒为单位。
+print(cameraCapture.get(cv2.CAP_PROP_POS_FRAMES))#基于以0开始的被捕获或解码的帧索引
+print(cameraCapture.get(cv2.CAP_PROP_POS_AVI_RATIO))#视频文件的相对位置（播放）：0=电影开始，1=影片的结尾。
+print(cameraCapture.get(cv2.CAP_PROP_FRAME_WIDTH))#在视频流的帧的宽度。
+print(cameraCapture.get(cv2.CAP_PROP_FRAME_HEIGHT))#在视频流的帧的高度
+
+import cv2
+
+cap = cv2.VideoCapture('XXX.avi')  #返回一个capture对象
+cap.set(cv2.CAP_PROP_POS_FRAMES,50)  #设置要获取的帧号
+a,b=cap.read()  #read方法返回一个布尔值和一个视频帧。若帧读取成功，则返回True
+cv2.imshow('b', b)
+cv2.waitKey(1000)
+
+#假设需要将整个视频读取成一个四阶的numpy array，即它的shape为(帧数，高，宽，通道数3)。
+#首先需要通过capture对象的get方法获取视频的参数信息，再去建立这个array，循环读进数组中。
+
+import numpy as np
+import cv2
+
+cap = cv2.VideoCapture('XXX.mp4')
+wid = int(cap.get(3))
+hei = int(cap.get(4))
+framerate = int(cap.get(5))
+framenum = int(cap.get(7))
+
+video = np.zeros((framenum,hei,wid,3),dtype='float16')
+cnt = 0
+
+while(cap.isOpened()):
+    a,b=cap.read()
+    cv2.imshow('%d'%cnt, b)
+    cv2.waitKey(20)
+    b = b.astype('float16')/255
+    video[cnt]=b
+    print(cnt)
+    cnt+=1
