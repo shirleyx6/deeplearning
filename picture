@@ -207,3 +207,6 @@ def convert(width,height):
     out.save('E:/OpenCV/three/like_33.jpg')
 if __name__=='__main__':
     convert(256,256)
+
+
+#图像标注-labelme
