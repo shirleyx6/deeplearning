@@ -161,4 +161,49 @@ def video2frame(videos_src_path, video_formats, frames_save_path, width, height,
     
 if __name__ == '__main__':
     video2frame(videos_src_path, video_formats, frames_save_path, width, height, time_interval)
+    
+    
+# example
+https://blog.csdn.net/u010402786/article/details/72883421/
 
+https://blog.csdn.net/guilutian0541/article/details/81099052
+
+#单张图片的resize
+from PIL import Image
+def convert(width,height):
+    im=Image.open('E:/OpenCV/three/like.jpg')
+    out=im.resize((width,height),Image.ANTIALIAS)
+    out.save('E:/OpenCV/three/like_2.jpg')
+if __name__=='__main__':
+    convert(256,256)
+    
+#resize整个文件夹里的图片
+from PIL import Image
+import os
+def convert(dir,width,height):
+    file_list=os.listdir(dir)
+    print(file_list)
+    for filename in file_list:
+        path=''
+        path=dir+filename
+        path1='E:/OpenCV/dog_re/'
+        path1=path1+filename
+        im=Image.open(path)
+        out=im.resize((100,256),Image.ANTIALIAS)
+        print('%s has been resized!'%filename)
+        out.save(path1)
+if __name__=='__main__':
+    dir=input('please input the operate dir:')
+    convert(dir,100,256)
+    
+#按比例resize
+from PIL import Image
+def convert(width,height):
+    im=Image.open('E:/OpenCV/three/like.jpg')
+    (x,y)=im.size
+    x_s=width
+    y_s=int(y*x_s/x)
+    out=im.resize((x_s,y_s),Image.ANTIALIAS)
+    out.save('E:/OpenCV/three/like_33.jpg')
+if __name__=='__main__':
+    convert(256,256)
