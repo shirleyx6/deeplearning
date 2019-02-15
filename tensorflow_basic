@@ -1,3 +1,9 @@
+'''
+1、定义神经网络的结构和前向传播的输出结果；
+2、定义损失函数以及选择反向传播优化的算法；
+3、生成回话并在训练数据上反复运行反向传播优化算法。
+'''
+
 #二分类问题
 import tensorflow as tf
 from numpy.random import RandomState
