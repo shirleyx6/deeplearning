@@ -23,7 +23,7 @@ train_step=tf.train.AdamOptimizer(0.001).minimize(cross_entropy)
 rdm=RandomState(1)
 dataset_size=128
 X=rdm.rand(dataset_size,2)
-Y=[[int(x1+x2<1)for (x1,x2) in X]]
+Y=[[int(x1+x2<1)]for (x1,x2) in X]
 
 with tf.Session() as sess:
     init_op=tf.initialize_all_variables()
