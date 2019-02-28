@@ -1,0 +1,115 @@
+# -*- coding: utf-8 -*-
+# file: poems.py
+# author: JinTian
+# time: 08/03/2017 7:39 PM
+# Copyright 2017 JinTian. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ------------------------------------------------------------------------
+import collections
+import os
+import sys
+import numpy as np
+import matplotlib
+matplotlib.rcParams['font.sans-serif'] = ['SimHei']
+
+start_token = 'B'
+end_token = 'E'
+
+file_name='D:/数据分析/ny/tensorflow_poems-master/data/poems.txt'
+def process_poems(file_name):
+    # 诗集, 不包含诗题
+    poems = []
+#    file_name=poems
+#f=open(file_name, "r", encoding='utf-8', )
+    with open(file_name, "r", encoding='utf-8') as f:
+        # line = 首春:寒随穷律变，春逐鸟声开。初风飘带柳，晚雪间花梅。碧林青旧竹，绿沼翠新苔。芝田初雁去，绮树巧莺来。
+        for line in f.readlines():
+            try:
+                title, content = line.strip().split(':') # strip去除首尾空白符
+                content = content.replace(' ', '') # 去除句子中的空白符
+                # 排除含异常符号的诗句
+                if '_' in content or '(' in content or '（' in content or '《' in content or '[' in content \
+                or ')' in content or '）' in content or '》' in content or ']' in content or \
+    start_token in content or end_token in content:
+                    continue
+                # 排除过长和过短的诗句
+                if len(content) < 5 or len(content) > 79:
+                    continue
+                content = start_token + content + end_token
+                poems.append(content)
+            except ValueError as e:
+                pass
+    poems = sorted(poems, key=lambda x: len(line))
+
+    all_words = []
+    # 统计所有诗句中的字
+    for poem in poems:
+        all_words += [word for word in poem]
+    # 得到所有字和其对应的个数，exp：  {我：18}
+    counter = collections.Counter(all_words)
+    count_pairs = sorted(counter.items(), key=lambda x: x[1])
+    words, _ = zip(*count_pairs)#解压
+
+    # 所有字的集合，空白结尾
+    words = words[:len(words)] + (' ',)
+    # 得到所有诗中所有不重复words的字典集合： key：word， value：index
+    word_int_map = dict(zip(words, range(len(words))))
+    ''' 
+    得到字典中每个字的索引
+    {' ': 44,  '.': 37,  'B': 42,  'E': 20,  '。': 1,  '初': 2,  '去': 29,  '变': 6,  '声': 8,  '寒': 27,  '巧': 1
+     6,  '带': 14,  '开': 40,  '律': 3,  '新': 30,  '旧': 34,  '春': 24,  '晚': 21,  '来': 12,  '林': 13,  '柳': 26
+     ,  '树': 39,  '梅': 22,  '沼': 15,  '田': 36,  '碧': 17,  '穷': 41,  '竹': 35,  '绮': 23,  '绿': 11,  '翠': 19
+     ,  '芝': 38,  '花': 28,  '苔': 25,  '莺': 31,  '逐': 33,  '间': 9,  '随': 4,  '雁': 43,  '雪': 10,  '青': 5,
+     '风': 32,  '飘': 18,  '鸟': 7,  '，': 0}
+    '''
+    #得到索引空间， 索引空间的每一个元素是每首诗在字典中的索引向量（multiply-hot encoding）
+    # 每个元素的长度不一样,后续作为输入样本需要对齐
+    poems_vector = [list(map(lambda word: word_int_map.get(word, len(words)), poem)) for poem in poems]#每首诗转化成每个字唯一编码的集合
+    return poems_vector, word_int_map, words
+
+def generate_batch(batch_size, poems_vector, word_int_map):
+    # 计算batch个数
+    n_chunk = len(poems_vector) // batch_size
+    x_batches = []
+    y_batches = []
+    # 每次传入batch首诗
+    for i in range(n_chunk):
+        start_index = i * batch_size
+        end_index = start_index + batch_size
+        # 每个batch的索引
+        # 原始batchs中的元素长度不一致，需要对齐
+        # 先得到所有batch中的最长元素
+        batches = poems_vector[start_index:end_index]
+        length = max(map(len, batches))
+        # shape = (batch-size, length), 默认空白
+        x_data = np.full((batch_size, length), word_int_map[' '], np.int32)
+        # 将真实的诗词填充到x_data
+        for i in range(batch_size):
+            x_data[i, :len(batches[i])] = batches[i]
+        y_data = np.copy(x_data)
+        y_data[:, :-1] = x_data[:, 1:]
+        """
+        x_data             y_data
+        [                  [
+          [6,2,4,6,9]        [2,4,6,9,9]
+          [1,4,2,8,5]        [4,2,8,5,5]
+        ]                  ]
+        """
+        x_batches.append(x_data)
+        y_batches.append(y_data)
+    # 所有索引向量 [batch1, batch2, ......], 每个batch是1个shape为（batch_size，length ）的数组
+    return x_batches, y_batches
+
+poems_vector, word_int_map, vocabularies = process_poems(file_name)
+batches_inputs, batches_outputs = generate_batch(100, poems_vector, word_int_map)
