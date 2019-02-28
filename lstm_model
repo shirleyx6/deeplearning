@@ -1,0 +1,111 @@
+# -*- coding: utf-8 -*-
+# file: model.py
+# author: JinTian
+# time: 07/03/2017 3:07 PM
+# Copyright 2017 JinTian. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ------------------------------------------------------------------------
+import tensorflow as tf
+import numpy as np
+
+model = 'lstm'
+vocab_size=1000
+
+def rnn_model(model, input_data, output_data, vocab_size, rnn_size=128, num_layers=2, batch_size=64,
+              learning_rate=0.01):
+    """
+    construct rnn seq2seq model.
+    :param model: model class
+    :param input_data: input data placeholder
+    :param output_data: output data placeholder
+    :param vocab_size: 1000
+    :param rnn_size: 128
+    :param num_layers: 2
+    :param batch_size: 64
+    :param learning_rate:
+    :return:
+    """
+    end_points = {}
+
+    if model == 'rnn':
+        cell_fun = tf.contrib.rnn.BasicRNNCell
+    elif model == 'gru':
+        cell_fun = tf.contrib.rnn.GRUCell
+    elif model == 'lstm':
+        cell_fun = tf.contrib.rnn.BasicLSTMCell
+    # num_units is  rnn_size
+    cell = cell_fun(rnn_size, state_is_tuple=True)
+    # 多层lstm单元(cell)
+    cell = tf.contrib.rnn.MultiRNNCell([cell] * num_layers, state_is_tuple=True)
+
+    if output_data is not None:
+        initial_state = cell.zero_state(batch_size, tf.float32) # (2, 128)
+    else:
+        initial_state = cell.zero_state(1, tf.float32)
+
+    # vocab_size是字集合的长度  
+    input_data = tf.placeholder(tf.int32, [batch_size, None])
+    # input_data shape is (batch-size, 100)
+    # poems是索引，输入时索引组成的向量，就是根据train_inputs中的id，寻找embeddings中的对应元素。
+    # 比如，train_inputs = [1, 3, 5]，则找出embeddings中下标为1, 3, 5的向量组成一个矩阵返回。
+    with tf.device("/cpu:0"):
+        # embedding 是随机的矩阵 shape = (1000, 128)
+        embedding = tf.get_variable('embedding', initializer=tf.random_uniform(
+            [vocab_size + 1, rnn_size], -1.0, 1.0))
+        # 原始input_data是[batch_size, length], 然后embedding转化为（batch_size, length, rnn_size）
+        # 将输入的每个字转化为 1*time_step 的编码
+        # 原单首输入是2*[1,3,0,45,.....], 则inputs就取embedding空间的对应索引位置的数据
+        #2*100*128
+        inputs = tf.nn.embedding_lookup(embedding, input_data)
+
+    #
+    # [2, 100, 128]
+    outputs, last_state = tf.nn.dynamic_rnn(cell, inputs, initial_state=initial_state)
+    # 200*128
+    output = tf.reshape(outputs, [-1, rnn_size])
+
+    # 权重128*1001  因为输入是[2,100, 128], 输出得是[2, 100, 1001], 输入每个字（embedding 后长度是100）
+    # 对应输出1001类别中的概率最大的哪一类。(输入中填充的‘ ’空字符的输出应该是对应的类别中的‘空字符’)
+    weights = tf.Variable(tf.truncated_normal([rnn_size, vocab_size + 1]))
+    # 1001
+    bias = tf.Variable(tf.zeros(shape=[vocab_size + 1]))
+    # logits 是需要的输出， [200*128] x [ 128*1001] = 200 *1001
+    logits = tf.nn.bias_add(tf.matmul(output, weights), bias=bias)
+
+
+    if output_data is not None:
+        # 200*1001 因为总字数类别是1001
+        labels = tf.one_hot(tf.reshape(output_data, [-1]), depth=vocab_size + 1)
+        # should be [?, vocab_size+1]
+
+        loss = tf.nn.softmax_cross_entropy_with_logits(labels=labels, logits=logits)
+        # loss shape should be [?, vocab_size+1]
+        total_loss = tf.reduce_mean(loss)
+        train_op = tf.train.AdamOptimizer(learning_rate).minimize(total_loss)
+
+        end_points['initial_state'] = initial_state
+        end_points['output'] = output
+        end_points['train_op'] = train_op
+        end_points['total_loss'] = total_loss
+        end_points['loss'] = loss
+        end_points['last_state'] = last_state
+    else:
+        # 若输出位0，表示此时候是在test
+        prediction = tf.nn.softmax(logits)
+
+        end_points['initial_state'] = initial_state
+        end_points['last_state'] = last_state
+        end_points['prediction'] = prediction
+
+    return end_points
